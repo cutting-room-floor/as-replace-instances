@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "description": "Safely replace all instances in AWS AutoScaling Group",
   "main": "index.js",
+  "bin": {
+    "as-replace-instance": "./bin/replace.js"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/mapbox/as-replace-instance.git"
