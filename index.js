@@ -67,7 +67,8 @@ config.replaceInstances = function(options, callback) {
                 var increase = finalDoc.DesiredCapacity - newCount;
                 var newDesiredCapacity = parseInt(autoScalingGroup.DesiredCapacity) + increase;
                 if (newDesiredCapacity > (finalDoc.DesiredCapacity * 2)) {
-                    log('Refusing to increase Desired Capacity above target');
+                    log('Refusing to increase Desired Capacity above target.');
+                    log('Please review the AutoScaling Group\'s scaling activities for anomalies.');
                     this();
                 } else {
                     log('setting MinSize and DesiredCapacity to %s', newDesiredCapacity);
