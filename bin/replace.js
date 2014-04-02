@@ -5,7 +5,7 @@ var config = require('..');
 var env = require('superenv')('as');
 var optimist = require('optimist');
 
-config.setCredentials(env.accessKeyId, env.secretAccessKey, env.bucket);
+config.setCredentials(env.accessKeyId, env.secretAccessKey, env.bucket, env.prefix);
 
 var argv = optimist
     .options('region', {
@@ -24,5 +24,5 @@ if (argv.help) return optimist.showHelp();
 
 config.replaceInstances(argv, function(err, result) {
     if (err) throw err;
-    console.log(result ? 'Cycled instances on: ' + argv.name : '');
+    console.log('Cycled instances on %s', argv.name);
 });

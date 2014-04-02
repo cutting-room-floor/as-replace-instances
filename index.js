@@ -8,10 +8,11 @@ var env = {};
 var config = module.exports;
 
 // Allow override of the default superenv credentials
-config.setCredentials = function (accessKeyId, secretAccessKey, bucket) {
+config.setCredentials = function (accessKeyId, secretAccessKey, bucket, prefix) {
     env.accessKeyId = accessKeyId;
     env.secretAccessKey = secretAccessKey;
     env.bucket = bucket;
+    env.prefix = prefix;
 };
 
 config.replaceInstances = function(options, callback) {
@@ -23,9 +24,9 @@ config.replaceInstances = function(options, callback) {
         awsKey: env.accessKeyId,
         awsSecret: env.secretAccessKey,
         bucket: env.bucket,
-        prefix: 'deploy'
+        prefix: env.prefix
     });
-    function run(callback) {
+    function run() {
         var log = function() {
             var msg = util.format.apply(this, arguments);
             console.log('%s %s ' + msg, region, options.name);
