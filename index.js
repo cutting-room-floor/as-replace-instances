@@ -7,11 +7,9 @@ var env = {};
 var config = module.exports;
 
 // Allow override of the default superenv credentials
-config.setCredentials = function (accessKeyId, secretAccessKey, bucket, prefix) {
+config.setCredentials = function (accessKeyId, secretAccessKey) {
     env.accessKeyId = accessKeyId;
     env.secretAccessKey = secretAccessKey;
-    env.bucket = bucket;
-    env.prefix = prefix;
 };
 
 config.replaceInstances = function(options, callback) {
