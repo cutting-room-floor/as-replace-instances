@@ -1,7 +1,6 @@
 var _ = require('underscore');
 var Step = require('step');
 var util = require('util');
-var S3 = require('./lib/s3');
 var AWS = require('aws-sdk');
 var env = {};
 
@@ -20,41 +19,40 @@ config.replaceInstances = function(options, callback) {
     var autoscaling = new AWS.AutoScaling(_(env).extend({
         region: region
     }));
-    var s3 = new S3({
-        awsKey: env.accessKeyId,
-        awsSecret: env.secretAccessKey,
-        bucket: env.bucket,
-        prefix: env.prefix
-    });
     function run() {
         var log = function() {
             var msg = util.format.apply(this, arguments);
             console.log('%s %s ' + msg, region, options.name);
         };
         var autoScalingGroup;
-        var finalDoc;
+        var initialState;
         Step(function() {
             config.describeAutoScalingGroup(options.name, region, this);
         }, function(err, asGroup) {
             if (err) throw err;
             autoScalingGroup = asGroup;
-            // Save initial MinSize and DesiredCapacity to doc in S3.
-            // If doc already exists, use its values.
-            s3.get('/' + region + '-' + autoScalingGroup.AutoScalingGroupName, function(err, res, doc) {
-                if (err && err.code != 404) return this(err);
-                if (!doc) {
-                    finalDoc = {
-                        DesiredCapacity: autoScalingGroup.DesiredCapacity,
-                        MinSize: autoScalingGroup.MinSize
-                    };
-                    s3.put('/' + region + '-' + autoScalingGroup.AutoScalingGroupName, JSON.stringify(finalDoc), this);
-                } else {
-                    try { doc = JSON.parse(doc); }
-                    catch (err) { return this(err); }
-                    finalDoc = doc;
-                    return this();
+            // Get saved initial state from ASG, if present
+            initialState = _(autoScalingGroup.Tags).reduce(function(memo, tag) {
+                if (tag.Key === 'ari:MinSize') {
+                    memo.MinSize = tag.Value;
+                    return memo;
                 }
-            }.bind(this));
+                else if (tag.Key === 'ari:DesiredCapacity') {
+                    memo.DesiredCapacity = tag.Value;
+                    return memo;
+                } else {
+                    return memo;
+                }
+            }, {});
+            // Otherwise, get directly from ASG current values
+            if (!initialState.MinSize || !initialState.DesiredCapacity) {
+                initialState.MinSize = autoScalingGroup.MinSize;
+                initialState.DesiredCapacity = autoScalingGroup.DesiredCapacity;
+                // Save inital state as ASG tags
+                autoscaling.createOrUpdateTags(asgTagParams(autoScalingGroup), this);
+            } else {
+                return this();
+            }
         }, function(err) {
             if (err) throw err;
             var stat = _(autoScalingGroup.instances).groupBy(function(i) {
@@ -64,10 +62,10 @@ config.replaceInstances = function(options, callback) {
             // original DesiredCapacity, increase the DesiredCapacity to reach
             // double the original DesiredCapacity.
             var newCount = _(stat.CurrentOutOfService).size() + _(stat.CurrentInService).size();
-            if (newCount < finalDoc.DesiredCapacity) {
-                var increase = finalDoc.DesiredCapacity - newCount;
+            if (newCount < initialState.DesiredCapacity) {
+                var increase = initialState.DesiredCapacity - newCount;
                 var newDesiredCapacity = parseInt(autoScalingGroup.DesiredCapacity) + increase;
-                if (newDesiredCapacity > (finalDoc.DesiredCapacity * 2)) {
+                if (newDesiredCapacity > (initialState.DesiredCapacity * 2)) {
                     log('Refusing to increase Desired Capacity above target.');
                     log('Please review the AutoScaling Group\'s scaling activities for anomalies.');
                     this();
@@ -80,15 +78,15 @@ config.replaceInstances = function(options, callback) {
                 }
             // Otherwise, DesiredCapacity is as it should be and must wait for
             // new instances to come into service.
-            } else if (_(stat.CurrentInService).size() < finalDoc.DesiredCapacity) {
+            } else if (_(stat.CurrentInService).size() < initialState.DesiredCapacity) {
                 log('waiting for %s new instances to come InService', _(stat.CurrentOutOfService).size());
                 this();
             // All new instances are in service, reduce MinSize
-            } else if (autoScalingGroup.MinSize != finalDoc.MinSize) {
-                log('reset MinSize to %s', finalDoc.MinSize);
+            } else if (autoScalingGroup.MinSize != initialState.MinSize) {
+                log('reset MinSize to %s', initialState.MinSize);
                 autoscaling.updateAutoScalingGroup({
                     AutoScalingGroupName: autoScalingGroup.AutoScalingGroupName,
-                    MinSize: finalDoc.MinSize
+                    MinSize: initialState.MinSize
                 }, this);
             // Terminate all old instances
             } else if (_(stat.Obsolete).size()) {
@@ -103,15 +101,15 @@ config.replaceInstances = function(options, callback) {
             } else if (_(stat.Terminating).size()) {
                 log('waiting for obsolete instances to terminate');
                 this();
-            } else if (autoScalingGroup.DesiredCapacity != finalDoc.DesiredCapacity) {
-                log('reset DesiredCapacity to %s', finalDoc.DesiredCapacity);
+            } else if (autoScalingGroup.DesiredCapacity != initialState.DesiredCapacity) {
+                log('reset DesiredCapacity to %s', initialState.DesiredCapacity);
                 autoscaling.updateAutoScalingGroup({
                     AutoScalingGroupName: autoScalingGroup.AutoScalingGroupName,
-                    DesiredCapacity: finalDoc.DesiredCapacity
+                    DesiredCapacity: initialState.DesiredCapacity
                 }, this);
             } else {
-                s3.del('/' + region + '-' + autoScalingGroup.AutoScalingGroupName, function(err) {
-                    if (err) return this(err);
+                autoscaling.deleteTags(asgTagParams(autoScalingGroup), function(err) {
+                    if (err) return err;
                     log('deploy complete');
                     this(null, true);
                 }.bind(this));
@@ -197,3 +195,24 @@ config.describeAutoScalingGroup = function(groupId, region, callback) {
         callback(null, autoScalingGroup);
     });
 };
+
+function asgTagParams(asg) {
+    return {
+        Tags: [
+            {
+                Key: 'ari:MinSize',
+                PropagateAtLaunch: false,
+                ResourceId: asg.AutoScalingGroupName,
+                ResourceType: 'auto-scaling-group',
+                Value: JSON.stringify(asg.MinSize),
+            },
+            {
+                Key: 'ari:DesiredCapacity',
+                PropagateAtLaunch: false,
+                ResourceId: asg.AutoScalingGroupName,
+                ResourceType: 'auto-scaling-group',
+                Value: JSON.stringify(asg.DesiredCapacity),
+            }
+        ]
+    };
+}
