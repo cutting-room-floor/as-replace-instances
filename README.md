@@ -24,15 +24,9 @@ Place the following inside a file called ~/.asrc
 ```plain
 {
     "accessKeyId": "AWS_ACCESS_KEY_ID",
-    "secretAccessKey": "AWS_SECRET_ACCESS_KEY",
-    "bucket": "my-s3-bucket",
-    "prefix": "some-prefix"
+    "secretAccessKey": "AWS_SECRET_ACCESS_KEY"
 }
 ```
-
-as-replace-instances will write files inside s3://my-s3-bucket/some-prefix/
-which are used to store the original MinSize and DesiredCapacity before instance
-replacement begins.
 
 ## Usage
 
