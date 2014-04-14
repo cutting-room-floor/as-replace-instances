@@ -4,7 +4,7 @@
   "description": "Safely replace all instances in AWS AutoScaling Group",
   "main": "index.js",
   "bin": {
-    "as-replace-instance": "./bin/replace.js"
+    "as-replace-instances": "./bin/replace.js"
   },
   "repository": {
     "type": "git",
