@@ -62,7 +62,7 @@ config.replaceInstances = function(options, callback) {
             var newCount = _(stat.CurrentOutOfService).size() + _(stat.CurrentInService).size();
             if (newCount < initialState.DesiredCapacity) {
                 var increase = initialState.DesiredCapacity - newCount;
-                var newDesiredCapacity = parseInt(autoScalingGroup.DesiredCapacity) + increase;
+                var newDesiredCapacity = parseInt(autoScalingGroup.DesiredCapacity, 10) + increase;
                 if (newDesiredCapacity > (initialState.DesiredCapacity * 2)) {
                     log('Refusing to increase Desired Capacity above target.');
                     log('Please review the AutoScaling Group\'s scaling activities for anomalies.');
