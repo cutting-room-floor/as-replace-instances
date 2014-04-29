@@ -32,10 +32,10 @@ Place the following inside a file called ~/.asrc
 
 Provides single CLI command: `as-replace-instances`, used like
 
-`as-replace-instances` -r `<region>` -n `<autoscaling-group>`
+`as-replace-instances` -r `<region>` -g `<autoscaling-group>`
 
 - -r is the AWS region within which the specified AutoScaling Group exists
-- -n is the name of the AutoScaling Group on which to act
+- -g is the name of the AutoScaling Group on which to act
 
 or to use its javascript library:
 

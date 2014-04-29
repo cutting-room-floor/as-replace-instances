@@ -12,20 +12,19 @@ config.setCredentials = function (accessKeyId, secretAccessKey) {
     env.secretAccessKey = secretAccessKey;
 };
 
-config.replaceInstances = function(options, callback) {
-    var region = options.region;
+config.replaceInstances = function(region, group, callback) {
     var autoscaling = new AWS.AutoScaling(_(env).extend({
         region: region
     }));
     function run() {
         var log = function() {
             var msg = util.format.apply(this, arguments);
-            console.log('%s %s ' + msg, region, options.name);
+            console.log('%s %s ' + msg, region, group);
         };
         var autoScalingGroup;
         var initialState;
         Step(function() {
-            config.describeAutoScalingGroup(options.name, region, this);
+            config.describeAutoScalingGroup(group, region, this);
         }, function(err, asGroup) {
             if (err) throw err;
             autoScalingGroup = asGroup;
@@ -62,7 +61,7 @@ config.replaceInstances = function(options, callback) {
             var newCount = _(stat.CurrentOutOfService).size() + _(stat.CurrentInService).size();
             if (newCount < initialState.DesiredCapacity) {
                 var increase = initialState.DesiredCapacity - newCount;
-                var newDesiredCapacity = parseInt(autoScalingGroup.DesiredCapacity) + increase;
+                var newDesiredCapacity = parseInt(autoScalingGroup.DesiredCapacity, 10) + increase;
                 if (newDesiredCapacity > (initialState.DesiredCapacity * 2)) {
                     log('Refusing to increase Desired Capacity above target.');
                     log('Please review the AutoScaling Group\'s scaling activities for anomalies.');

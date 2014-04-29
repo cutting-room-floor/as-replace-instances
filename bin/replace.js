@@ -13,16 +13,16 @@ var argv = optimist
         demand: true,
         alias: 'r'
     })
-    .options('name', {
+    .options('group', {
         describe: 'Name of the AWS AutoScaling Group to cycle',
         demand: true,
-        alias: 'n'
+        alias: 'g'
     })
     .argv;
 
 if (argv.help) return optimist.showHelp();
 
-config.replaceInstances(argv, function(err, result) {
+config.replaceInstances(argv.region, argv.group, function(err, result) {
     if (err) throw err;
-    console.log('Cycled instances on %s', argv.name);
+    console.log('Cycled instances on %s', argv.group);
 });
