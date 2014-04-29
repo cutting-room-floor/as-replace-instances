@@ -12,20 +12,19 @@ config.setCredentials = function (accessKeyId, secretAccessKey) {
     env.secretAccessKey = secretAccessKey;
 };
 
-config.replaceInstances = function(options, callback) {
-    var region = options.region;
+config.replaceInstances = function(region, group, callback) {
     var autoscaling = new AWS.AutoScaling(_(env).extend({
         region: region
     }));
     function run() {
         var log = function() {
             var msg = util.format.apply(this, arguments);
-            console.log('%s %s ' + msg, region, options.name);
+            console.log('%s %s ' + msg, region, group);
         };
         var autoScalingGroup;
         var initialState;
         Step(function() {
-            config.describeAutoScalingGroup(options.name, region, this);
+            config.describeAutoScalingGroup(group, region, this);
         }, function(err, asGroup) {
             if (err) throw err;
             autoScalingGroup = asGroup;

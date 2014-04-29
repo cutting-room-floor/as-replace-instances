@@ -22,7 +22,7 @@ var argv = optimist
 
 if (argv.help) return optimist.showHelp();
 
-config.replaceInstances(argv, function(err, result) {
+config.replaceInstances(argv.region, argv.group, function(err, result) {
     if (err) throw err;
     console.log('Cycled instances on %s', argv.group);
 });
