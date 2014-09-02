@@ -78,13 +78,42 @@ config.replaceInstances = function(region, group, callback) {
             } else if (_(stat.CurrentInService).size() < initialState.DesiredCapacity) {
                 log('waiting for %s new instances to come InService', _(stat.CurrentOutOfService).size());
                 this();
-            // All new instances are in service, reduce MinSize
             } else if (autoScalingGroup.MinSize != initialState.MinSize) {
-                log('reset MinSize to %s', initialState.MinSize);
-                autoscaling.updateAutoScalingGroup({
-                    AutoScalingGroupName: autoScalingGroup.AutoScalingGroupName,
-                    MinSize: initialState.MinSize
-                }, this);
+                // Check for balanced AZ usage among new instances before
+                // terminating obsolete instances
+                var obsoleteAzs = _(stat.Obsolete).chain()
+                  .pluck('AvailabilityZone').uniq().value();
+                var newAzs = _(stat.CurrentInService).chain()
+                  .pluck('AvailabilityZone').uniq().value();
+                var balance = Math.floor(initialState.DesiredCapacity / autoScalingGroup.AvailabilityZones.length);
+                var imbalance = false;
+                // Check that new instances use same number of AZs as obsolete.
+                if (newAzs.length < obsoleteAzs.length) {
+                    imbalance = true;
+                    log('New capacity uses fewer AZs than obsolete capacity. Waiting for rebalance to occur');
+                }
+                // Check for sufficient capacity in each AZ used by new instances
+                _(newAzs).each(function(az) {
+                    var count = _(stat.CurrentInService).reduce(function(memo, i) {
+                        if (i.AvailabilityZone == az) return memo + 1;
+                        else return memo;
+                    }, 0);
+                    var capacity = count / balance || 0;
+                    if (capacity < 0.7) {
+                        imbalance = true;
+                        log(az + ' at ' + capacity + ' capacity. Waiting for rebalance to occur.');
+                    }
+                });
+                if (imbalance) {
+                    this();
+                } else {
+                    // All new instances are in service, AZs are within balance, reduce MinSize
+                    log('reset MinSize to %s', initialState.MinSize);
+                    autoscaling.updateAutoScalingGroup({
+                        AutoScalingGroupName: autoScalingGroup.AutoScalingGroupName,
+                        MinSize: initialState.MinSize
+                    }, this);
+                }
             // Terminate all old instances
             } else if (_(stat.Obsolete).size()) {
                 log('terminating obsolete instances:\n ', _(stat.Obsolete).pluck('InstanceId').join('\n  '));
