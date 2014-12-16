@@ -1,3 +1,5 @@
+**Deprecation Notice**: AWS released the features that this project was a polyfill for. AutoScalingGroup UpdatePolicy now has the [WaitOnResourceSignals attribute](http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html#cfn-attributes-updatepolicy-rollingupdate-waitonresourcesignals), which allows AWS to fully control the rolling update process.
+
 Safely replace all instances in AWS AutoScaling Group.
 
 ## How it works
